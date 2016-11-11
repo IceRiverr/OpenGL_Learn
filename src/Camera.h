@@ -32,11 +32,11 @@ public:
 
 	glm::vec3 cameraPos;
 	glm::vec3 cameraFront;
-
-private:
-	glm::vec3 cameraUp;
 	GLfloat pitch;
 	GLfloat yaw;
+private:
+	glm::vec3 cameraUp;
+	
 	GLdouble lastX, lastY;
 	GLfloat fov;
 	GLfloat aspect;

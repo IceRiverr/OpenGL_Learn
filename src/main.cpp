@@ -25,17 +25,18 @@ Shader* g_pSingleColorShader = nullptr;
 Shader* g_pGrassShader = nullptr;
 Shader* g_pLineShader = nullptr;
 Shader* g_pScreensapceShader = nullptr;
+Shader* g_pSkyboxShader;
 
 Shape* g_pQuadShape = nullptr;
 BoxShape* g_pBoxShape = nullptr;
 Model* g_pModel = nullptr;
 
 Camera* g_pCamera = nullptr;
-Camera* g_pBackViewCamera = nullptr;
+//Camera* g_pBackViewCamera = nullptr;
 GLFWwindow* g_pWindow;
 Light* g_pLight;
 FrameBuffer* g_pFrameBuffer;
-FrameBuffer* g_pBackViewFrameBuffer;
+//FrameBuffer* g_pBackViewFrameBuffer;
 
 GLint g_nWidth, g_nHeight;
 GLuint g_RockTex;
@@ -48,11 +49,16 @@ GLuint g_ContainerD;
 GLuint g_ContainerS;
 GLuint g_ContainerE;
 
+GLuint g_SkyBoxMap;
+
 GLuint quadVAO;
 GLuint quadVBO;
 GLuint quadEBO;
 
 GLboolean bBackView = GL_TRUE;
+GLuint skyBoxVAO;
+
+
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode); 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -69,6 +75,8 @@ void PostProcess();
 void CreateTexture(GLuint& tex, const char* fileName);
 void Ohter_Test();
 void BindLightShaderParams(GLuint shaderProgram, Camera* camera);
+void LoadCubeMap();
+void CreateSkybox();
 
 int main()
 {
@@ -150,19 +158,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 
 	g_pCamera->Camera_key_callback(window, key, scancode, action, mode);
-	g_pBackViewCamera->Camera_key_callback(window, key, scancode, action, mode);
+	//g_pBackViewCamera->Camera_key_callback(window, key, scancode, action, mode);
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
 	g_pCamera->Camera_mouse_callback(window, xpos, ypos);
-	g_pBackViewCamera->Camera_mouse_callback(window, xpos, ypos);
+	//g_pBackViewCamera->Camera_mouse_callback(window, xpos, ypos);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	g_pCamera->Camera_scroll_callback(window, xoffset, yoffset);
-	g_pBackViewCamera->Camera_scroll_callback(window, xoffset, yoffset);
+	//g_pBackViewCamera->Camera_scroll_callback(window, xoffset, yoffset);
 }
 
 glm::vec3 pointLightPositions[] = {
@@ -180,6 +188,7 @@ void InitResource()
 	g_pGrassShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\GrassShader_ps.glsl");
 	g_pLineShader = new Shader("..\\shaders\\LineShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
 	g_pScreensapceShader = new Shader("..\\shaders\\ScreenSpaceShader_vs.glsl", "..\\shaders\\PostProcess_ps.glsl");
+	g_pSkyboxShader = new Shader("..\\shaders\\SkyBox_vs.glsl", "..\\shaders\\SkyBox_ps.glsl");
 
 	g_pQuadShape = new Shape(P3N3T2);
 	g_pQuadShape->Create(&quadVertices[0], sizeof(quadVertices), numQuadVertex, &squadIndices[0], sizeof(squadIndices), numQuadIndex);
@@ -189,8 +198,10 @@ void InitResource()
 
 	float aspect = (float)g_nWidth / (float)g_nHeight;
 	g_pCamera = new Camera(glm::vec3(0.0f, 5.0f, 15.0f), aspect);
-	g_pBackViewCamera = new Camera(glm::vec3(0.0f, 5.0f, 15.0f), aspect);
-	g_pBackViewCamera->cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
+	//g_pBackViewCamera = new Camera(glm::vec3(0.0f, -5.0f, 15.0f), aspect);
+	//g_pBackViewCamera->cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
+	//g_pBackViewCamera->yaw = 90.0f;
+	//g_pBackViewCamera->pitch = 0.0f;
 	
 	CreateTexture(g_RockTex, "..\\media\\racing-pack\\PNG\\Objects\\rock1.png");
 	CreateTexture(g_ArrowTex, "..\\media\\racing-pack\\PNG\\Objects\\arrow_yellow.png");
@@ -200,6 +211,9 @@ void InitResource()
 	CreateTexture(g_ContainerE, "..\\media\\letter_S.png");
 	CreateTexture(g_GrassTex, "..\\media\\grass.png");
 	CreateTexture(g_GlassTex, "..\\media\\blending_transparent_window.png");
+	
+	LoadCubeMap();
+	CreateSkybox();
 
 	g_pLight = new Light();
 	g_pLight->BindShape(g_pBoxShape);
@@ -213,8 +227,8 @@ void InitResource()
 	// framebuffer
 	g_pFrameBuffer = new FrameBuffer();
 	g_pFrameBuffer->CreateFrameBuffer();
-	g_pBackViewFrameBuffer = new FrameBuffer;
-	g_pBackViewFrameBuffer->CreateFrameBuffer();
+	//g_pBackViewFrameBuffer = new FrameBuffer;
+	//g_pBackViewFrameBuffer->CreateFrameBuffer();
 
 	GLfloat fullscreenQuadVertices[] = 
 	{
@@ -255,7 +269,7 @@ void InitResource()
 void Update(GLfloat dt)
 {
 	g_pCamera->Update(dt);
-	g_pBackViewCamera->Update(dt);
+	//g_pBackViewCamera->Update(dt);
 }
 
 void Render()
@@ -270,22 +284,24 @@ void Render()
 	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
 	DrawLight(g_pCamera);
+	
 	DrawGlass(g_pCamera);
+	
 
 	// back view
-	if(bBackView)
-	{ 
-		glBindFramebuffer(GL_FRAMEBUFFER, g_pBackViewFrameBuffer->fbo);
-		glClearColor(0.0f, 0.25f, 0.47f, 1.0f); // state-setting /state-using
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glEnable(GL_DEPTH_TEST);
-		glDepthFunc(GL_LEQUAL);
-		glEnable(GL_STENCIL_TEST);
-		glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+	//if(bBackView)
+	//{ 
+	//	glBindFramebuffer(GL_FRAMEBUFFER, g_pBackViewFrameBuffer->fbo);
+	//	glClearColor(0.0f, 0.25f, 0.47f, 1.0f); // state-setting /state-using
+	//	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//	glEnable(GL_DEPTH_TEST);
+	//	glDepthFunc(GL_LEQUAL);
+	//	glEnable(GL_STENCIL_TEST);
+	//	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
-		DrawLight(g_pBackViewCamera);
-		DrawGlass(g_pBackViewCamera);
-	}
+	//	DrawLight(g_pBackViewCamera);
+	//	DrawGlass(g_pBackViewCamera);
+	//}
 	
 	// postProcess
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -378,6 +394,9 @@ void DrawGlass(Camera* camera)
 
 void DrawLight(Camera* camera)
 {
+	
+
+
 	// draw light
 	{
 		g_pSingleColorShader->Use();
@@ -489,6 +508,32 @@ void DrawLight(Camera* camera)
 		line.Draw();
 	}
 
+	// draw skybox
+	{
+		//glDepthMask(GL_FALSE);
+		//glDisable(GL_DEPTH_TEST);
+		g_pSkyboxShader->Use();
+		glBindVertexArray(skyBoxVAO);
+
+		glm::mat4 modelM;
+
+		glm::mat4 view = glm::mat4(glm::mat3(camera->GetViewM()));
+
+		g_pSkyboxShader->vsParams.SetVSMatrix(modelM, view, camera->GetPerspProjM());
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, g_SkyBoxMap);
+		glUniform1i(glGetUniformLocation(g_pSkyboxShader->Program, "cubeMap"), 0);
+
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+		glBindVertexArray(0);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+
+		//glDepthMask(GL_TRUE);
+		//glEnable(GL_DEPTH_TEST);
+	}
 }
 
 void PostProcess()
@@ -505,7 +550,7 @@ void PostProcess()
 	glUniformMatrix4fv(modelMLoc, 1, GL_FALSE, glm::value_ptr(modelM));
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-	if (bBackView)
+	/*if (bBackView)
 	{
 		glBindTexture(GL_TEXTURE_2D, g_pBackViewFrameBuffer->colorTexture);
 		glUniform1i(glGetUniformLocation(g_pScreensapceShader->Program, "mainMap"), 0);
@@ -514,7 +559,7 @@ void PostProcess()
 		modelM = glm::scale(modelM, glm::vec3(0.25f, 0.25f, 0.25f));
 		glUniformMatrix4fv(modelMLoc, 1, GL_FALSE, glm::value_ptr(modelM));
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-	}
+	}*/
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -592,4 +637,96 @@ void BindLightShaderParams(GLuint shaderProgram, Camera* camera)
 	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.quadratic"), 0.032);
 	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.cutoff"), glm::cos(glm::radians(15.0f)));
 	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.outerCutoff"), glm::cos(glm::radians(30.0f)));
+}
+
+void LoadCubeMap()
+{
+	std::string skyboxFiles[6]
+	{
+		"..\\media\\skybox\\right.jpg",
+		"..\\media\\skybox\\left.jpg",
+		"..\\media\\skybox\\top.jpg",
+		"..\\media\\skybox\\bottom.jpg",
+		"..\\media\\skybox\\back.jpg",
+		"..\\media\\skybox\\front.jpg",
+	};
+
+	glGenTextures(1, &g_SkyBoxMap);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, g_SkyBoxMap);
+
+	int width, height;
+	unsigned char* image;
+	for (GLuint i = 0; i < 6; ++i)
+	{
+		image = SOIL_load_image(skyboxFiles[i].c_str(), &width, &height, nullptr, SOIL_LOAD_RGB);
+		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+}
+
+void CreateSkybox()
+{
+	GLfloat skyboxVertices[] = {
+		// Positions          
+		-1.0f,  1.0f, -1.0f,
+		-1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+		1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+
+		-1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f, -1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+
+		-1.0f, -1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f, -1.0f,  1.0f,
+		-1.0f, -1.0f,  1.0f,
+
+		-1.0f,  1.0f, -1.0f,
+		1.0f,  1.0f, -1.0f,
+		1.0f,  1.0f,  1.0f,
+		1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f,  1.0f,
+		-1.0f,  1.0f, -1.0f,
+
+		-1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		1.0f, -1.0f, -1.0f,
+		1.0f, -1.0f, -1.0f,
+		-1.0f, -1.0f,  1.0f,
+		1.0f, -1.0f,  1.0f
+	};
+
+	GLuint skyBoxVBO;
+	glGenBuffers(1, &skyBoxVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, skyBoxVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices[0], GL_STATIC_DRAW);
+	
+	glGenVertexArrays(1, &skyBoxVAO);
+	glBindVertexArray(skyBoxVAO);
+	
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,3 * sizeof(GLfloat), (GLvoid*)0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	
+	glBindVertexArray(0);
 }
