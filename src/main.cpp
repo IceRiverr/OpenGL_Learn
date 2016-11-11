@@ -19,7 +19,6 @@
 #include "Model.h"
 
 Shader* g_pShader = nullptr;
-Shader* g_pLightShapeShader = nullptr;
 Shader* g_pLightObjectShader = nullptr;
 Shader* g_pSingleColorShader = nullptr;
 Shader* g_pGrassShader = nullptr;
@@ -162,11 +161,10 @@ glm::vec3 pointLightPositions[] = {
 
 void InitResource()
 {
-	g_pShader = new Shader("..\\shaders\\BasicShader.vs", "..\\shaders\\BasicShader.frag");
-	g_pLightShapeShader = new Shader("..\\shaders\\BasicShader.vs", "..\\shaders\\LightShapeShader.frag");
-	g_pLightObjectShader = new Shader("..\\shaders\\BasicShader.vs", "..\\shaders\\LightObjectShader.frag");
-	g_pSingleColorShader = new Shader("..\\shaders\\BasicShader.vs", "..\\shaders\\SingleColor_ps.glsl");
-	g_pGrassShader = new Shader("..\\shaders\\BasicShader.vs", "..\\shaders\\GrassShader_ps.glsl");
+	g_pShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\BasicShader_ps.glsl");
+	g_pLightObjectShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\LightObjectShader_ps.glsl");
+	g_pSingleColorShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
+	g_pGrassShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\GrassShader_ps.glsl");
 	g_pLineShader = new Shader("..\\shaders\\LineShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
 
 	g_pQuadShape = new Shape(P3N3T2);
@@ -225,11 +223,10 @@ void Destroy()
 	delete g_pQuadShape; g_pQuadShape = nullptr;
 	g_pBoxShape->ClearBuffer();
 	delete g_pBoxShape; g_pBoxShape = nullptr;
-	delete g_pShader; g_pShader = nullptr;
-	delete g_pLightShapeShader; g_pLightShapeShader = nullptr;
-	delete g_pLightObjectShader; g_pLightObjectShader = nullptr;
-	delete g_pCamera; g_pCamera = nullptr;
-	glDeleteTextures(1, &g_RockTex);
+	delete g_pShader;				g_pShader = nullptr;
+	delete g_pLightObjectShader;	g_pLightObjectShader = nullptr;
+	delete g_pCamera;				g_pCamera = nullptr;
+	glDeleteTextures(1, &g_RockTex);	
 	glDeleteTextures(1, &g_ArrowTex);
 	glDeleteTextures(1, &g_WordTex);
 
@@ -302,20 +299,21 @@ void DrawLight()
 {
 	// draw light
 	{
-		g_pLightShapeShader->Use();
-
+		g_pSingleColorShader->Use();
+		glUniform4f(glGetUniformLocation(g_pSingleColorShader->Program, "drawColor"), 1.0f, 0.5f, 0.31f, 1.0f);
+		
 		glm::mat4 modelM;
 		modelM = glm::translate(modelM, g_pLight->lightPos);
 		modelM = glm::scale(modelM, glm::vec3(0.2f));
 		
-		g_pLightObjectShader->vsParams.SetVSMatrix(modelM, g_pCamera->GetViewM(), g_pCamera->GetPerspProjM());
+		g_pSingleColorShader->vsParams.SetVSMatrix(modelM, g_pCamera->GetViewM(), g_pCamera->GetPerspProjM());
 		
 		for (int i = 0; i < 4; ++i)
 		{
 			glm::mat4 modelM;
 			modelM = glm::translate(modelM, pointLightPositions[i]);
 			modelM = glm::scale(modelM, glm::vec3(0.2f));
-			g_pLightObjectShader->vsParams.SetModelMatrix(modelM);
+			g_pSingleColorShader->vsParams.SetModelMatrix(modelM);
 
 			g_pLight->pLightShape->Draw();
 		}

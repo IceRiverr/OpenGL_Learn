@@ -142,13 +142,11 @@
     <ClInclude Include="..\src\Shader.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\shaders\BasicShader.frag" />
-    <None Include="..\shaders\BasicShader.vs" />
+    <None Include="..\shaders\BasicShader_ps.glsl" />
+    <None Include="..\shaders\BasicShader_vs.glsl" />
     <None Include="..\shaders\DepthBufferTest_ps.glsl" />
     <None Include="..\shaders\GrassShader_ps.glsl" />
-    <None Include="..\shaders\LightObjectShader.frag" />
-    <None Include="..\shaders\LightObjectShader_Color.frag" />
-    <None Include="..\shaders\LightShapeShader.frag" />
+    <None Include="..\shaders\LightObjectShader_ps.glsl" />
     <None Include="..\shaders\LineShader_vs.glsl" />
     <None Include="..\shaders\SingleColor_ps.glsl" />
   </ItemGroup>
