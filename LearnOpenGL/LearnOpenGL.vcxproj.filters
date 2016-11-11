@@ -68,6 +68,9 @@
     <ClInclude Include="..\src\Model.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\FrameBuffer.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\DepthBufferTest_ps.glsl">
@@ -89,6 +92,9 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="..\shaders\BasicShader_ps.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\shaders\ScreenSpaceShader_vs.glsl">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

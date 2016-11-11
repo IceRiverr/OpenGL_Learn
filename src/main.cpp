@@ -17,12 +17,14 @@
 #include "Light.h"
 #include "Material.h"
 #include "Model.h"
+#include "FrameBuffer.h"
 
 Shader* g_pShader = nullptr;
 Shader* g_pLightObjectShader = nullptr;
 Shader* g_pSingleColorShader = nullptr;
 Shader* g_pGrassShader = nullptr;
 Shader* g_pLineShader = nullptr;
+Shader* g_pScreensapceShader = nullptr;
 
 Shape* g_pQuadShape = nullptr;
 BoxShape* g_pBoxShape = nullptr;
@@ -31,6 +33,7 @@ Model* g_pModel = nullptr;
 Camera* g_pCamera = nullptr;
 GLFWwindow* g_pWindow;
 Light* g_pLight;
+FrameBuffer* g_pFrameBuffer;
 
 GLint g_nWidth, g_nHeight;
 GLuint g_RockTex;
@@ -43,6 +46,10 @@ GLuint g_ContainerD;
 GLuint g_ContainerS;
 GLuint g_ContainerE;
 
+GLuint quadVAO;
+GLuint quadVBO;
+GLuint quadEBO;
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode); 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -53,6 +60,7 @@ void Destroy();
 
 void DrawGlass();
 void DrawLight();
+void PostProcess();
 
 void CreateTexture(GLuint& tex, const char* fileName);
 void Ohter_Test();
@@ -166,6 +174,7 @@ void InitResource()
 	g_pSingleColorShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
 	g_pGrassShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\GrassShader_ps.glsl");
 	g_pLineShader = new Shader("..\\shaders\\LineShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
+	g_pScreensapceShader = new Shader("..\\shaders\\ScreenSpaceShader_vs.glsl", "..\\shaders\\BasicShader_ps.glsl");
 
 	g_pQuadShape = new Shape(P3N3T2);
 	g_pQuadShape->Create(&quadVertices[0], sizeof(quadVertices), numQuadVertex, &squadIndices[0], sizeof(squadIndices), numQuadIndex);
@@ -193,6 +202,45 @@ void InitResource()
 	g_pLight->lightPos = glm::vec3(-1.0f, 1.0f, 1.0f);
 
 	g_pModel = new Model("../media/nanosuit/nanosuit.obj");
+
+	// framebuffer
+	g_pFrameBuffer = new FrameBuffer();
+	g_pFrameBuffer->CreateFrameBuffer();
+
+	GLfloat fullscreenQuadVertices[] = 
+	{
+		-1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 
+		 1.0f, -1.0f, 0.0f, 1.0f, 1.0f,
+		 1.0f,  1.0f, 0.0f, 1.0f, 0.0f,
+		-1.0f,  1.0f, 0.0f, 0.0f, 0.0f
+	};
+
+	GLuint fullscreenQuadIndices[6] =
+	{
+		0, 1, 3,
+		1, 2 ,3
+	};
+
+	glGenBuffers(1, &quadVBO);
+	glGenBuffers(1, &quadEBO);
+	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(fullscreenQuadVertices), &fullscreenQuadVertices[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(fullscreenQuadIndices), &fullscreenQuadIndices[0], GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glGenVertexArrays(1, &quadVAO);
+	glBindVertexArray(quadVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glBindVertexArray(0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void Update(GLfloat dt)
@@ -202,17 +250,24 @@ void Update(GLfloat dt)
 
 void Render()
 {
+	glBindFramebuffer(GL_FRAMEBUFFER, g_pFrameBuffer->fbo);
+
+	glClearColor(0.0f, 0.25f, 0.47f, 1.0f); // state-setting /state-using
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
-	
 	glEnable(GL_STENCIL_TEST);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
-	glClearColor(0.0f, 0.25f, 0.47f, 1.0f); // state-setting /state-using
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
 	DrawLight();
 	DrawGlass();
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glDisable(GL_DEPTH_TEST);
+
+	PostProcess();
 
 	glfwSwapBuffers(g_pWindow);
 }
@@ -410,6 +465,26 @@ void DrawLight()
 
 }
 
+void PostProcess()
+{
+	g_pScreensapceShader->Use();
+	
+	glBindVertexArray(quadVAO);
+	
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, g_pFrameBuffer->colorTexture);
+	//glBindTexture(GL_TEXTURE_2D, g_GlassTex);
+	glUniform1i(glGetUniformLocation(g_pScreensapceShader->Program, "mainMap"), 0);
+	
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindVertexArray(0);
+
+
+}
+
 void Ohter_Test()
 {
 	//glStencilMask(0x00);
@@ -481,45 +556,4 @@ void BindLightShaderParams(GLuint shaderProgram)
 	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.quadratic"), 0.032);
 	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.cutoff"), glm::cos(glm::radians(15.0f)));
 	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.outerCutoff"), glm::cos(glm::radians(30.0f)));
-}
-
-
-void CreateFrameBufferTexture()
-{
-	GLuint fbo;
-	glGenFramebuffers(1, &fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-	GLuint colorTexture;
-	glGenTextures(1, &colorTexture);
-	glBindTexture(GL_TEXTURE_2D, colorTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1200, 900, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTexture, 0);
-/*
-	GLuint depthStencilTexture;
-	glGenTextures(1, &depthStencilTexture);
-	glBindTexture(GL_TEXTURE_2D, depthStencilTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, 1200, 900, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT, NULL);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, depthStencilTexture, 0);
-	glBindTexture(GL_TEXTURE_2D, 0);*/
-
-	// 
-	GLuint rbo;
-	glGenRenderbuffers(1, &rbo);
-	glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 1200, 900);
-	glBindRenderbuffer(GL_RENDERBUFFER, 0);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-	
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-	{
-		std::cout << "ERROR::FRAMEBUFFER::Framebuffer is not complete!" << std::endl;
-	}
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-	//glDeleteFramebuffers(1, &fbo);
 }
