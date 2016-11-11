@@ -18,6 +18,7 @@ Camera::Camera(glm::vec3 cameraPos, GLfloat aspect)
 		keys[i] = GL_FALSE;
 
 	orthoProjM = glm::ortho(-this->aspect, this->aspect, -1.0f, 1.0f, 0.1f, 100.0f);
+	perspProjM = glm::perspective(glm::radians(fov), aspect, 0.1f, 100.0f);
 }
 
 void Camera::Update(GLfloat dt)
@@ -44,7 +45,6 @@ glm::mat4 Camera::GetOrthoProjM()
 }
 glm::mat4 Camera::GetPerspProjM()
 {
-	perspProjM = glm::perspective(glm::radians(fov), aspect, 0.1f, 100.0f);
 	return perspProjM;
 }
 glm::vec3 Camera::GetCameraPos()

@@ -97,5 +97,8 @@
     <None Include="..\shaders\ScreenSpaceShader_vs.glsl">
       <Filter>shaders</Filter>
     </None>
+    <None Include="..\shaders\PostProcess_ps.glsl">
+      <Filter>shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

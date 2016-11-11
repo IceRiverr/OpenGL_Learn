@@ -149,6 +149,7 @@
     <None Include="..\shaders\GrassShader_ps.glsl" />
     <None Include="..\shaders\LightObjectShader_ps.glsl" />
     <None Include="..\shaders\LineShader_vs.glsl" />
+    <None Include="..\shaders\PostProcess_ps.glsl" />
     <None Include="..\shaders\ScreenSpaceShader_vs.glsl" />
     <None Include="..\shaders\SingleColor_ps.glsl" />
   </ItemGroup>

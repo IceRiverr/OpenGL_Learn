@@ -31,9 +31,11 @@ BoxShape* g_pBoxShape = nullptr;
 Model* g_pModel = nullptr;
 
 Camera* g_pCamera = nullptr;
+Camera* g_pBackViewCamera = nullptr;
 GLFWwindow* g_pWindow;
 Light* g_pLight;
 FrameBuffer* g_pFrameBuffer;
+FrameBuffer* g_pBackViewFrameBuffer;
 
 GLint g_nWidth, g_nHeight;
 GLuint g_RockTex;
@@ -50,6 +52,8 @@ GLuint quadVAO;
 GLuint quadVBO;
 GLuint quadEBO;
 
+GLboolean bBackView = GL_TRUE;
+
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode); 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -58,13 +62,13 @@ void Update(GLfloat dt);
 void Render();
 void Destroy();
 
-void DrawGlass();
-void DrawLight();
+void DrawGlass(Camera* camera);
+void DrawLight(Camera* camera);
 void PostProcess();
 
 void CreateTexture(GLuint& tex, const char* fileName);
 void Ohter_Test();
-void BindLightShaderParams(GLuint shaderProgram);
+void BindLightShaderParams(GLuint shaderProgram, Camera* camera);
 
 int main()
 {
@@ -146,18 +150,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 
 	g_pCamera->Camera_key_callback(window, key, scancode, action, mode);
+	g_pBackViewCamera->Camera_key_callback(window, key, scancode, action, mode);
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
 	g_pCamera->Camera_mouse_callback(window, xpos, ypos);
-
+	g_pBackViewCamera->Camera_mouse_callback(window, xpos, ypos);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	g_pCamera->Camera_scroll_callback(window, xoffset, yoffset);
-	
+	g_pBackViewCamera->Camera_scroll_callback(window, xoffset, yoffset);
 }
 
 glm::vec3 pointLightPositions[] = {
@@ -174,7 +179,7 @@ void InitResource()
 	g_pSingleColorShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
 	g_pGrassShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\GrassShader_ps.glsl");
 	g_pLineShader = new Shader("..\\shaders\\LineShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
-	g_pScreensapceShader = new Shader("..\\shaders\\ScreenSpaceShader_vs.glsl", "..\\shaders\\BasicShader_ps.glsl");
+	g_pScreensapceShader = new Shader("..\\shaders\\ScreenSpaceShader_vs.glsl", "..\\shaders\\PostProcess_ps.glsl");
 
 	g_pQuadShape = new Shape(P3N3T2);
 	g_pQuadShape->Create(&quadVertices[0], sizeof(quadVertices), numQuadVertex, &squadIndices[0], sizeof(squadIndices), numQuadIndex);
@@ -184,13 +189,15 @@ void InitResource()
 
 	float aspect = (float)g_nWidth / (float)g_nHeight;
 	g_pCamera = new Camera(glm::vec3(0.0f, 5.0f, 15.0f), aspect);
-
+	g_pBackViewCamera = new Camera(glm::vec3(0.0f, 5.0f, 15.0f), aspect);
+	g_pBackViewCamera->cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
+	
 	CreateTexture(g_RockTex, "..\\media\\racing-pack\\PNG\\Objects\\rock1.png");
 	CreateTexture(g_ArrowTex, "..\\media\\racing-pack\\PNG\\Objects\\arrow_yellow.png");
 	CreateTexture(g_WordTex, "..\\media\\letter_S.png");
 	CreateTexture(g_ContainerD, "..\\media\\container2_diffuse.png");
 	CreateTexture(g_ContainerS, "..\\media\\container2_specular.png");
-	CreateTexture(g_ContainerE, "..\\media\\letter_S.png");//letter_S.png matrix.jpg
+	CreateTexture(g_ContainerE, "..\\media\\letter_S.png");
 	CreateTexture(g_GrassTex, "..\\media\\grass.png");
 	CreateTexture(g_GlassTex, "..\\media\\blending_transparent_window.png");
 
@@ -206,6 +213,8 @@ void InitResource()
 	// framebuffer
 	g_pFrameBuffer = new FrameBuffer();
 	g_pFrameBuffer->CreateFrameBuffer();
+	g_pBackViewFrameBuffer = new FrameBuffer;
+	g_pBackViewFrameBuffer->CreateFrameBuffer();
 
 	GLfloat fullscreenQuadVertices[] = 
 	{
@@ -246,12 +255,13 @@ void InitResource()
 void Update(GLfloat dt)
 {
 	g_pCamera->Update(dt);
+	g_pBackViewCamera->Update(dt);
 }
 
 void Render()
 {
+	// fornt view
 	glBindFramebuffer(GL_FRAMEBUFFER, g_pFrameBuffer->fbo);
-
 	glClearColor(0.0f, 0.25f, 0.47f, 1.0f); // state-setting /state-using
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
@@ -259,9 +269,25 @@ void Render()
 	glEnable(GL_STENCIL_TEST);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
-	DrawLight();
-	DrawGlass();
+	DrawLight(g_pCamera);
+	DrawGlass(g_pCamera);
 
+	// back view
+	if(bBackView)
+	{ 
+		glBindFramebuffer(GL_FRAMEBUFFER, g_pBackViewFrameBuffer->fbo);
+		glClearColor(0.0f, 0.25f, 0.47f, 1.0f); // state-setting /state-using
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LEQUAL);
+		glEnable(GL_STENCIL_TEST);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+		DrawLight(g_pBackViewCamera);
+		DrawGlass(g_pBackViewCamera);
+	}
+	
+	// postProcess
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -308,7 +334,7 @@ void CreateTexture(GLuint& tex, const char* fileName)
 	SOIL_free_image_data(image);
 }
 
-void DrawGlass()
+void DrawGlass(Camera* camera)
 {
 	float offset = static_cast<float>(sin(glfwGetTime()) * 10.0f);
 	float angleR = static_cast<float>(glm::radians(glfwGetTime() * 100.0f));
@@ -323,7 +349,7 @@ void DrawGlass()
 	modelM = glm::rotate(modelM, angleR, glm::vec3(1.0f, 0.0f, 0.0f));
 	modelM = glm::scale(modelM, glm::vec3(2.0f, 2.0f, 2.0f));
 	
-	g_pShader->vsParams.SetVSMatrix(modelM, g_pCamera->GetViewM(), g_pCamera->GetPerspProjM());
+	g_pShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, g_GlassTex);
@@ -350,7 +376,7 @@ void DrawGlass()
 	glDisable(GL_BLEND);
 }
 
-void DrawLight()
+void DrawLight(Camera* camera)
 {
 	// draw light
 	{
@@ -361,7 +387,7 @@ void DrawLight()
 		modelM = glm::translate(modelM, g_pLight->lightPos);
 		modelM = glm::scale(modelM, glm::vec3(0.2f));
 		
-		g_pSingleColorShader->vsParams.SetVSMatrix(modelM, g_pCamera->GetViewM(), g_pCamera->GetPerspProjM());
+		g_pSingleColorShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
 		
 		for (int i = 0; i < 4; ++i)
 		{
@@ -383,7 +409,7 @@ void DrawLight()
 		modelM = glm::rotate(modelM, glm::radians((GLfloat)glfwGetTime() * 45.0f), glm::vec3(1.0f));
 		modelM = glm::scale(modelM, glm::vec3(1.0f));
 		
-		g_pLightObjectShader->vsParams.SetVSMatrix(modelM, g_pCamera->GetViewM(), g_pCamera->GetPerspProjM());
+		g_pLightObjectShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, g_ContainerD);
@@ -395,10 +421,10 @@ void DrawLight()
 		glUniform1f(matShininessLoc, 32.0f);
 
 		GLint viewPosLoc = glGetUniformLocation(g_pLightObjectShader->Program, "viewPos");
-		glm::vec3 viewPos = g_pCamera->GetCameraPos();
+		glm::vec3 viewPos = camera->GetCameraPos();
 		glUniform3f(viewPosLoc, viewPos.x, viewPos.y, viewPos.z);
 
-		BindLightShaderParams(g_pLightObjectShader->Program);
+		BindLightShaderParams(g_pLightObjectShader->Program, camera);
 
 		g_pBoxShape->Draw();
 
@@ -434,7 +460,7 @@ void DrawLight()
 		{
 			glm::mat4 modelM;
 			modelM = glm::translate(modelM, grassPos[i]);
-			g_pGrassShader->vsParams.SetVSMatrix(modelM, g_pCamera->GetViewM(), g_pCamera->GetPerspProjM());
+			g_pGrassShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
 			g_pQuadShape->Draw();
 		}
 
@@ -447,7 +473,7 @@ void DrawLight()
 		glm::mat4 modelM;
 		modelM = glm::translate(modelM, glm::vec3(0.0f, 0.0f, 0.0f));
 		g_pLineShader->Use();
-		g_pLineShader->vsParams.SetVSMatrix(modelM, g_pCamera->GetViewM(), g_pCamera->GetPerspProjM());
+		g_pLineShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
 		glm::vec4 redColor(1.0f, 0.0f,0.0f,1.0f);
 		glUniform4f(glGetUniformLocation(g_pLineShader->Program, "drawColor"), redColor.x, redColor.y, redColor.y, redColor.z);
 
@@ -473,16 +499,26 @@ void PostProcess()
 	
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, g_pFrameBuffer->colorTexture);
-	//glBindTexture(GL_TEXTURE_2D, g_GlassTex);
 	glUniform1i(glGetUniformLocation(g_pScreensapceShader->Program, "mainMap"), 0);
-	
+	glm::mat4 modelM;
+	GLint modelMLoc = glGetUniformLocation(g_pScreensapceShader->Program, "modelM");
+	glUniformMatrix4fv(modelMLoc, 1, GL_FALSE, glm::value_ptr(modelM));
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-	
+
+	if (bBackView)
+	{
+		glBindTexture(GL_TEXTURE_2D, g_pBackViewFrameBuffer->colorTexture);
+		glUniform1i(glGetUniformLocation(g_pScreensapceShader->Program, "mainMap"), 0);
+		modelM = glm::mat4();
+		modelM = glm::translate(modelM, glm::vec3(0.75, 0.75, 0.0f));
+		modelM = glm::scale(modelM, glm::vec3(0.25f, 0.25f, 0.25f));
+		glUniformMatrix4fv(modelMLoc, 1, GL_FALSE, glm::value_ptr(modelM));
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	}
+
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glBindVertexArray(0);
-
-
 }
 
 void Ohter_Test()
@@ -507,7 +543,7 @@ void Ohter_Test()
 	//glEnable(GL_DEPTH_TEST);
 }
 
-void BindLightShaderParams(GLuint shaderProgram)
+void BindLightShaderParams(GLuint shaderProgram, Camera* camera)
 {
 	glUniform3f(glGetUniformLocation(shaderProgram, "dirLight.lightDir"), 1.0f, -1.0f, -1.0f);
 	glUniform3f(glGetUniformLocation(shaderProgram, "dirLight.ambient"), 0.05f, 0.05f, 0.05f);
@@ -546,8 +582,8 @@ void BindLightShaderParams(GLuint shaderProgram)
 	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[3].linear"), 0.09);
 	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[3].quadratic"), 0.032);
 	//// SpotLight
-	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.lightPos"), g_pCamera->cameraPos.x, g_pCamera->cameraPos.y, g_pCamera->cameraPos.z);
-	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.lightDir"), g_pCamera->cameraFront.x, g_pCamera->cameraFront.y, g_pCamera->cameraFront.z);
+	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.lightPos"), camera->cameraPos.x, camera->cameraPos.y, camera->cameraPos.z);
+	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.lightDir"), camera->cameraFront.x, camera->cameraFront.y, camera->cameraFront.z);
 	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.ambient"), 0.0f, 0.0f, 0.0f);
 	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.diffuse"), 1.0f, 1.0f, 1.0f);
 	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.specular"), 1.0f, 1.0f, 1.0f);
