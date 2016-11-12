@@ -1,6 +1,7 @@
 
 #include "Model.h"
 #include <SOIL.h>
+#include "Tookit.h"
 
 Model::Model(GLchar* path)
 {
@@ -119,7 +120,8 @@ std::vector<Texture> Model::loadMaterialTextures(aiMaterial* mat, aiTextureType 
 		if (!bSkip)
 		{
 			Texture texture;
-			texture.id = CreateTextureFromFile(str.C_Str(), this->directory);
+			std::string texFile = this->directory + "/" + str.C_Str();
+			texture.id = LoadTextureFromFile(texFile.c_str());
 			texture.type = texType;
 			texture.path = str;
 			textures.push_back(texture);
@@ -127,27 +129,4 @@ std::vector<Texture> Model::loadMaterialTextures(aiMaterial* mat, aiTextureType 
 		}
 	}
 	return textures;
-}
-
-GLint CreateTextureFromFile(const char* path, std::string directory)
-{
-	string filename = string(path);
-	filename = directory + '/' + filename;
-	GLuint textureID;
-	glGenTextures(1, &textureID);
-	int width, height;
-	unsigned char* image = SOIL_load_image(filename.c_str(), &width, &height, 0, SOIL_LOAD_RGBA);
-	
-	glBindTexture(GL_TEXTURE_2D, textureID);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-	glGenerateMipmap(GL_TEXTURE_2D);
-	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	SOIL_free_image_data(image);
-
-	return textureID;
 }

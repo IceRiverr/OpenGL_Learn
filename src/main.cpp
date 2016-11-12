@@ -18,25 +18,27 @@
 #include "Material.h"
 #include "Model.h"
 #include "FrameBuffer.h"
+#include "Skybox.h"
+#include "Tookit.h"
+#include "Postprocess.h"
 
 Shader* g_pShader = nullptr;
 Shader* g_pLightObjectShader = nullptr;
 Shader* g_pSingleColorShader = nullptr;
 Shader* g_pGrassShader = nullptr;
 Shader* g_pLineShader = nullptr;
-Shader* g_pScreensapceShader = nullptr;
-Shader* g_pSkyboxShader;
+
 
 Shape* g_pQuadShape = nullptr;
 BoxShape* g_pBoxShape = nullptr;
 Model* g_pModel = nullptr;
 
 Camera* g_pCamera = nullptr;
-//Camera* g_pBackViewCamera = nullptr;
 GLFWwindow* g_pWindow;
 Light* g_pLight;
 FrameBuffer* g_pFrameBuffer;
-//FrameBuffer* g_pBackViewFrameBuffer;
+Skybox* g_pSkybox;
+Postprocess* g_pPostprocess;
 
 GLint g_nWidth, g_nHeight;
 GLuint g_RockTex;
@@ -49,17 +51,6 @@ GLuint g_ContainerD;
 GLuint g_ContainerS;
 GLuint g_ContainerE;
 
-GLuint g_SkyBoxMap;
-
-GLuint quadVAO;
-GLuint quadVBO;
-GLuint quadEBO;
-
-GLboolean bBackView = GL_TRUE;
-GLuint skyBoxVAO;
-
-
-
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode); 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -70,13 +61,6 @@ void Destroy();
 
 void DrawGlass(Camera* camera);
 void DrawLight(Camera* camera);
-void PostProcess();
-
-void CreateTexture(GLuint& tex, const char* fileName);
-void Ohter_Test();
-void BindLightShaderParams(GLuint shaderProgram, Camera* camera);
-void LoadCubeMap();
-void CreateSkybox();
 
 int main()
 {
@@ -112,7 +96,6 @@ int main()
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
 	InitResource();
-	Ohter_Test();
 
 	//glEnable(GL_CULL_FACE);
 	//glCullFace(GL_BACK);
@@ -158,27 +141,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 
 	g_pCamera->Camera_key_callback(window, key, scancode, action, mode);
-	//g_pBackViewCamera->Camera_key_callback(window, key, scancode, action, mode);
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
 	g_pCamera->Camera_mouse_callback(window, xpos, ypos);
-	//g_pBackViewCamera->Camera_mouse_callback(window, xpos, ypos);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	g_pCamera->Camera_scroll_callback(window, xoffset, yoffset);
-	//g_pBackViewCamera->Camera_scroll_callback(window, xoffset, yoffset);
 }
-
-glm::vec3 pointLightPositions[] = {
-	glm::vec3(4.0f,  4.0f,  2.0f),
-	glm::vec3(-4.0f, 4.0f, 2.0f),
-	glm::vec3(4.0f,  -4.0f, -3.0f),
-	glm::vec3(-4.0f,  -4.0f, -3.0f)
-};
 
 void InitResource()
 {
@@ -187,9 +160,7 @@ void InitResource()
 	g_pSingleColorShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
 	g_pGrassShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\GrassShader_ps.glsl");
 	g_pLineShader = new Shader("..\\shaders\\LineShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
-	g_pScreensapceShader = new Shader("..\\shaders\\ScreenSpaceShader_vs.glsl", "..\\shaders\\PostProcess_ps.glsl");
-	g_pSkyboxShader = new Shader("..\\shaders\\SkyBox_vs.glsl", "..\\shaders\\SkyBox_ps.glsl");
-
+	
 	g_pQuadShape = new Shape(P3N3T2);
 	g_pQuadShape->Create(&quadVertices[0], sizeof(quadVertices), numQuadVertex, &squadIndices[0], sizeof(squadIndices), numQuadIndex);
 
@@ -198,23 +169,16 @@ void InitResource()
 
 	float aspect = (float)g_nWidth / (float)g_nHeight;
 	g_pCamera = new Camera(glm::vec3(0.0f, 5.0f, 15.0f), aspect);
-	//g_pBackViewCamera = new Camera(glm::vec3(0.0f, -5.0f, 15.0f), aspect);
-	//g_pBackViewCamera->cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
-	//g_pBackViewCamera->yaw = 90.0f;
-	//g_pBackViewCamera->pitch = 0.0f;
-	
-	CreateTexture(g_RockTex, "..\\media\\racing-pack\\PNG\\Objects\\rock1.png");
-	CreateTexture(g_ArrowTex, "..\\media\\racing-pack\\PNG\\Objects\\arrow_yellow.png");
-	CreateTexture(g_WordTex, "..\\media\\letter_S.png");
-	CreateTexture(g_ContainerD, "..\\media\\container2_diffuse.png");
-	CreateTexture(g_ContainerS, "..\\media\\container2_specular.png");
-	CreateTexture(g_ContainerE, "..\\media\\letter_S.png");
-	CreateTexture(g_GrassTex, "..\\media\\grass.png");
-	CreateTexture(g_GlassTex, "..\\media\\blending_transparent_window.png");
-	
-	LoadCubeMap();
-	CreateSkybox();
 
+	g_RockTex = LoadTextureFromFile("..\\media\\racing-pack\\PNG\\Objects\\rock1.png");
+	g_ArrowTex = LoadTextureFromFile("..\\media\\racing-pack\\PNG\\Objects\\arrow_yellow.png");
+	g_WordTex = LoadTextureFromFile("..\\media\\letter_S.png");
+	g_ContainerD = LoadTextureFromFile("..\\media\\container2_diffuse.png");
+	g_ContainerS = LoadTextureFromFile("..\\media\\container2_specular.png");
+	g_ContainerE = LoadTextureFromFile("..\\media\\letter_S.png");
+	g_GrassTex = LoadTextureFromFile("..\\media\\grass.png");
+	g_GlassTex = LoadTextureFromFile("..\\media\\blending_transparent_window.png");
+	
 	g_pLight = new Light();
 	g_pLight->BindShape(g_pBoxShape);
 	g_pLight->ambient = glm::vec3(0.2f, 0.2f, 0.2f);
@@ -224,52 +188,32 @@ void InitResource()
 
 	g_pModel = new Model("../media/nanosuit/nanosuit.obj");
 
-	// framebuffer
 	g_pFrameBuffer = new FrameBuffer();
 	g_pFrameBuffer->CreateFrameBuffer();
-	//g_pBackViewFrameBuffer = new FrameBuffer;
-	//g_pBackViewFrameBuffer->CreateFrameBuffer();
 
-	GLfloat fullscreenQuadVertices[] = 
+	g_pSkybox = new Skybox();
+	g_pSkybox->Init();
+	std::string skyboxFiles[6]
 	{
-		-1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 
-		 1.0f, -1.0f, 0.0f, 1.0f, 1.0f,
-		 1.0f,  1.0f, 0.0f, 1.0f, 0.0f,
-		-1.0f,  1.0f, 0.0f, 0.0f, 0.0f
+		"..\\media\\skybox\\right.jpg",
+		"..\\media\\skybox\\left.jpg",
+		"..\\media\\skybox\\top.jpg",
+		"..\\media\\skybox\\bottom.jpg",
+		"..\\media\\skybox\\back.jpg",
+		"..\\media\\skybox\\front.jpg",
 	};
+	std::vector<std::string> skyboxFaces(6);
+	for (int i = 0; i < 6; ++i)
+		skyboxFaces[i] = skyboxFiles[i];
+	g_pSkybox->SetCubeMapFiles(skyboxFaces);
 
-	GLuint fullscreenQuadIndices[6] =
-	{
-		0, 1, 3,
-		1, 2 ,3
-	};
-
-	glGenBuffers(1, &quadVBO);
-	glGenBuffers(1, &quadEBO);
-	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(fullscreenQuadVertices), &fullscreenQuadVertices[0], GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(fullscreenQuadIndices), &fullscreenQuadIndices[0], GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	glGenVertexArrays(1, &quadVAO);
-	glBindVertexArray(quadVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, quadEBO);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
-	glBindVertexArray(0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	g_pPostprocess = new Postprocess();
+	g_pPostprocess->Init();
 }
 
 void Update(GLfloat dt)
 {
 	g_pCamera->Update(dt);
-	//g_pBackViewCamera->Update(dt);
 }
 
 void Render()
@@ -284,32 +228,15 @@ void Render()
 	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
 	DrawLight(g_pCamera);
-	
+	g_pSkybox->Draw(g_pCamera);
 	DrawGlass(g_pCamera);
-	
-
-	// back view
-	//if(bBackView)
-	//{ 
-	//	glBindFramebuffer(GL_FRAMEBUFFER, g_pBackViewFrameBuffer->fbo);
-	//	glClearColor(0.0f, 0.25f, 0.47f, 1.0f); // state-setting /state-using
-	//	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	//	glEnable(GL_DEPTH_TEST);
-	//	glDepthFunc(GL_LEQUAL);
-	//	glEnable(GL_STENCIL_TEST);
-	//	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-
-	//	DrawLight(g_pBackViewCamera);
-	//	DrawGlass(g_pBackViewCamera);
-	//}
 	
 	// postProcess
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glDisable(GL_DEPTH_TEST);
-
-	PostProcess();
+	g_pPostprocess->Draw(g_pFrameBuffer->colorTexture);
 
 	glfwSwapBuffers(g_pWindow);
 }
@@ -317,37 +244,17 @@ void Render()
 void Destroy()
 {
 	g_pQuadShape->ClearBuffer();
-	delete g_pQuadShape; g_pQuadShape = nullptr;
 	g_pBoxShape->ClearBuffer();
-	delete g_pBoxShape; g_pBoxShape = nullptr;
+	delete g_pQuadShape;			g_pQuadShape = nullptr;
+	delete g_pBoxShape;				g_pBoxShape = nullptr;
 	delete g_pShader;				g_pShader = nullptr;
 	delete g_pLightObjectShader;	g_pLightObjectShader = nullptr;
 	delete g_pCamera;				g_pCamera = nullptr;
-	glDeleteTextures(1, &g_RockTex);	
+	delete g_pSkybox;				g_pSkybox = nullptr;
+	delete g_pPostprocess;			g_pPostprocess = nullptr;
+	glDeleteTextures(1, &g_RockTex);
 	glDeleteTextures(1, &g_ArrowTex);
 	glDeleteTextures(1, &g_WordTex);
-
-}
-
-void CreateTexture(GLuint& tex, const char* fileName)
-{
-	int width, height, chanels;
-	unsigned char* image;
-	image = SOIL_load_image(fileName, &width, &height, &chanels, SOIL_LOAD_RGBA);
-
-	glGenTextures(1, &tex);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
-	glGenerateMipmap(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	SOIL_free_image_data(image);
 }
 
 void DrawGlass(Camera* camera)
@@ -394,9 +301,6 @@ void DrawGlass(Camera* camera)
 
 void DrawLight(Camera* camera)
 {
-	
-
-
 	// draw light
 	{
 		g_pSingleColorShader->Use();
@@ -408,10 +312,10 @@ void DrawLight(Camera* camera)
 		
 		g_pSingleColorShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
 		
-		for (int i = 0; i < 4; ++i)
+		for (int i = 0; i < LIGNT_COUNT; ++i)
 		{
 			glm::mat4 modelM;
-			modelM = glm::translate(modelM, pointLightPositions[i]);
+			modelM = glm::translate(modelM, GetLightPosition(i));
 			modelM = glm::scale(modelM, glm::vec3(0.2f));
 			g_pSingleColorShader->vsParams.SetModelMatrix(modelM);
 
@@ -507,226 +411,4 @@ void DrawLight(Camera* camera)
 		line.Create((&linePoint[0]), 2);
 		line.Draw();
 	}
-
-	// draw skybox
-	{
-		//glDepthMask(GL_FALSE);
-		//glDisable(GL_DEPTH_TEST);
-		g_pSkyboxShader->Use();
-		glBindVertexArray(skyBoxVAO);
-
-		glm::mat4 modelM;
-
-		glm::mat4 view = glm::mat4(glm::mat3(camera->GetViewM()));
-
-		g_pSkyboxShader->vsParams.SetVSMatrix(modelM, view, camera->GetPerspProjM());
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, g_SkyBoxMap);
-		glUniform1i(glGetUniformLocation(g_pSkyboxShader->Program, "cubeMap"), 0);
-
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-		glBindVertexArray(0);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-
-		//glDepthMask(GL_TRUE);
-		//glEnable(GL_DEPTH_TEST);
-	}
-}
-
-void PostProcess()
-{
-	g_pScreensapceShader->Use();
-	
-	glBindVertexArray(quadVAO);
-	
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, g_pFrameBuffer->colorTexture);
-	glUniform1i(glGetUniformLocation(g_pScreensapceShader->Program, "mainMap"), 0);
-	glm::mat4 modelM;
-	GLint modelMLoc = glGetUniformLocation(g_pScreensapceShader->Program, "modelM");
-	glUniformMatrix4fv(modelMLoc, 1, GL_FALSE, glm::value_ptr(modelM));
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-	/*if (bBackView)
-	{
-		glBindTexture(GL_TEXTURE_2D, g_pBackViewFrameBuffer->colorTexture);
-		glUniform1i(glGetUniformLocation(g_pScreensapceShader->Program, "mainMap"), 0);
-		modelM = glm::mat4();
-		modelM = glm::translate(modelM, glm::vec3(0.75, 0.75, 0.0f));
-		modelM = glm::scale(modelM, glm::vec3(0.25f, 0.25f, 0.25f));
-		glUniformMatrix4fv(modelMLoc, 1, GL_FALSE, glm::value_ptr(modelM));
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-	}*/
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glBindVertexArray(0);
-}
-
-void Ohter_Test()
-{
-	//glStencilMask(0x00);
-
-	// draw other object
-
-	//glStencilMask(0xFF);
-	//glStencilFunc(GL_ALWAYS, 1, 0xFF);
-
-	// draw Model
-
-	//glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-	//glStencilMask(0x00);
-	//glDisable(GL_DEPTH_TEST);
-	// shaderProgram->Use()
-	//{
-		//draw Model Scale
-	//}
-	//glStencilMask(0xFF);
-	//glEnable(GL_DEPTH_TEST);
-}
-
-void BindLightShaderParams(GLuint shaderProgram, Camera* camera)
-{
-	glUniform3f(glGetUniformLocation(shaderProgram, "dirLight.lightDir"), 1.0f, -1.0f, -1.0f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "dirLight.ambient"), 0.05f, 0.05f, 0.05f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "dirLight.diffuse"), 0.4f, 0.4f, 0.4f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "dirLight.specular"), 0.5f, 0.5f, 0.5f);
-	// Point light 1
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[0].lightPos"), pointLightPositions[0].x, pointLightPositions[0].y, pointLightPositions[0].z);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[0].ambient"), 0.05f, 0.05f, 0.05f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[0].diffuse"), 0.8f, 0.8f, 0.8f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[0].specular"), 1.0f, 1.0f, 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[0].constant"), 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[0].linear"), 0.09);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[0].quadratic"), 0.032);
-	// Point light 2
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[1].lightPos"), pointLightPositions[1].x, pointLightPositions[1].y, pointLightPositions[1].z);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[1].ambient"), 0.05f, 0.05f, 0.05f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[1].diffuse"), 0.8f, 0.8f, 0.8f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[1].specular"), 1.0f, 1.0f, 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[1].constant"), 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[1].linear"), 0.09);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[1].quadratic"), 0.032);
-	// Point light 3
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[2].lightPos"), pointLightPositions[2].x, pointLightPositions[2].y, pointLightPositions[2].z);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[2].ambient"), 0.05f, 0.05f, 0.05f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[2].diffuse"), 0.8f, 0.8f, 0.8f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[2].specular"), 1.0f, 1.0f, 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[2].constant"), 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[2].linear"), 0.09);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[2].quadratic"), 0.032);
-	// Point light 4
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[3].lightPos"), pointLightPositions[3].x, pointLightPositions[3].y, pointLightPositions[3].z);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[3].ambient"), 0.05f, 0.05f, 0.05f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[3].diffuse"), 0.8f, 0.8f, 0.8f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "pointLights[3].specular"), 1.0f, 1.0f, 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[3].constant"), 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[3].linear"), 0.09);
-	glUniform1f(glGetUniformLocation(shaderProgram, "pointLights[3].quadratic"), 0.032);
-	//// SpotLight
-	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.lightPos"), camera->cameraPos.x, camera->cameraPos.y, camera->cameraPos.z);
-	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.lightDir"), camera->cameraFront.x, camera->cameraFront.y, camera->cameraFront.z);
-	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.ambient"), 0.0f, 0.0f, 0.0f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.diffuse"), 1.0f, 1.0f, 1.0f);
-	glUniform3f(glGetUniformLocation(shaderProgram, "spotLight.specular"), 1.0f, 1.0f, 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.constant"), 1.0f);
-	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.linear"), 0.09);
-	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.quadratic"), 0.032);
-	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.cutoff"), glm::cos(glm::radians(15.0f)));
-	glUniform1f(glGetUniformLocation(shaderProgram, "spotLight.outerCutoff"), glm::cos(glm::radians(30.0f)));
-}
-
-void LoadCubeMap()
-{
-	std::string skyboxFiles[6]
-	{
-		"..\\media\\skybox\\right.jpg",
-		"..\\media\\skybox\\left.jpg",
-		"..\\media\\skybox\\top.jpg",
-		"..\\media\\skybox\\bottom.jpg",
-		"..\\media\\skybox\\back.jpg",
-		"..\\media\\skybox\\front.jpg",
-	};
-
-	glGenTextures(1, &g_SkyBoxMap);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, g_SkyBoxMap);
-
-	int width, height;
-	unsigned char* image;
-	for (GLuint i = 0; i < 6; ++i)
-	{
-		image = SOIL_load_image(skyboxFiles[i].c_str(), &width, &height, nullptr, SOIL_LOAD_RGB);
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-	}
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
-}
-
-void CreateSkybox()
-{
-	GLfloat skyboxVertices[] = {
-		// Positions          
-		-1.0f,  1.0f, -1.0f,
-		-1.0f, -1.0f, -1.0f,
-		1.0f, -1.0f, -1.0f,
-		1.0f, -1.0f, -1.0f,
-		1.0f,  1.0f, -1.0f,
-		-1.0f,  1.0f, -1.0f,
-
-		-1.0f, -1.0f,  1.0f,
-		-1.0f, -1.0f, -1.0f,
-		-1.0f,  1.0f, -1.0f,
-		-1.0f,  1.0f, -1.0f,
-		-1.0f,  1.0f,  1.0f,
-		-1.0f, -1.0f,  1.0f,
-
-		1.0f, -1.0f, -1.0f,
-		1.0f, -1.0f,  1.0f,
-		1.0f,  1.0f,  1.0f,
-		1.0f,  1.0f,  1.0f,
-		1.0f,  1.0f, -1.0f,
-		1.0f, -1.0f, -1.0f,
-
-		-1.0f, -1.0f,  1.0f,
-		-1.0f,  1.0f,  1.0f,
-		1.0f,  1.0f,  1.0f,
-		1.0f,  1.0f,  1.0f,
-		1.0f, -1.0f,  1.0f,
-		-1.0f, -1.0f,  1.0f,
-
-		-1.0f,  1.0f, -1.0f,
-		1.0f,  1.0f, -1.0f,
-		1.0f,  1.0f,  1.0f,
-		1.0f,  1.0f,  1.0f,
-		-1.0f,  1.0f,  1.0f,
-		-1.0f,  1.0f, -1.0f,
-
-		-1.0f, -1.0f, -1.0f,
-		-1.0f, -1.0f,  1.0f,
-		1.0f, -1.0f, -1.0f,
-		1.0f, -1.0f, -1.0f,
-		-1.0f, -1.0f,  1.0f,
-		1.0f, -1.0f,  1.0f
-	};
-
-	GLuint skyBoxVBO;
-	glGenBuffers(1, &skyBoxVBO);
-	glBindBuffer(GL_ARRAY_BUFFER, skyBoxVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices[0], GL_STATIC_DRAW);
-	
-	glGenVertexArrays(1, &skyBoxVAO);
-	glBindVertexArray(skyBoxVAO);
-	
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,3 * sizeof(GLfloat), (GLvoid*)0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	
-	glBindVertexArray(0);
 }

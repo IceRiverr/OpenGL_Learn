@@ -20,7 +20,11 @@ public:
 	glm::vec3 lightPos;
 };
 
+static const int LIGNT_COUNT = 4;
 
+glm::vec3 GetLightPosition(GLuint index);
 
+class Camera;
+void BindLightShaderParams(GLuint shaderProgram, Camera* camera);
 
 #endif // !_LIGHT_H_

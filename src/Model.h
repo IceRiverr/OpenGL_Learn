@@ -11,6 +11,7 @@
 
 #include "Mesh.h"
 
+
 class Model
 {
 public:
@@ -30,7 +31,5 @@ private:
 	std::vector<Texture> loadMaterialTextures(aiMaterial* mat, aiTextureType type, std::string typeName);
 
 };
-
-GLint CreateTextureFromFile(const char* path, std::string directory);
 
 #endif // !_MODEL_H

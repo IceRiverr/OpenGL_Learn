@@ -128,8 +128,11 @@
     <ClCompile Include="..\src\Material.cpp" />
     <ClCompile Include="..\src\Mesh.cpp" />
     <ClCompile Include="..\src\Model.cpp" />
+    <ClCompile Include="..\src\Postprocess.cpp" />
     <ClCompile Include="..\src\Shape.cpp" />
     <ClCompile Include="..\src\Shader.cpp" />
+    <ClCompile Include="..\src\Skybox.cpp" />
+    <ClCompile Include="..\src\Tookit.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\Camera.h" />
@@ -139,8 +142,11 @@
     <ClInclude Include="..\src\Mesh.h" />
     <ClInclude Include="..\src\MeshData.h" />
     <ClInclude Include="..\src\Model.h" />
+    <ClInclude Include="..\src\Postprocess.h" />
     <ClInclude Include="..\src\Shape.h" />
     <ClInclude Include="..\src\Shader.h" />
+    <ClInclude Include="..\src\Skybox.h" />
+    <ClInclude Include="..\src\Tookit.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\shaders\BasicShader_ps.glsl" />
