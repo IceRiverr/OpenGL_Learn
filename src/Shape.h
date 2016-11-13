@@ -87,12 +87,10 @@ public:
 
 	void Draw();
 	
-	/*std::vector<glm::vec3> positions;
+	std::vector<glm::vec3> positions;
 	std::vector<glm::vec3> normals;
 	std::vector<glm::vec2> texcoords;
 	std::vector<GLuint> indices;
-
-	bool bHasNormal;*/
 
 private:
 	GLuint meshVAO;

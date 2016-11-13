@@ -100,9 +100,9 @@ int main()
 
 	InitResource();
 
-	//glEnable(GL_CULL_FACE);
-	//glCullFace(GL_BACK);
-	//glFrontFace(GL_CCW);
+	/*glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glFrontFace(GL_CCW);*/
 	
 	GLfloat deltaTime = 0.0f;
 	GLdouble lastFrame = 0.0f;
@@ -444,12 +444,10 @@ void DrawLight(Camera* camera)
 	{
 		g_pSingleColorShader->Use();
 		glm::mat4 modelM;
-		modelM = glm::translate(modelM, glm::vec3(1.0f, 1.0f, 0.0f));
+		modelM = glm::translate(modelM, glm::vec3(10.0f, 1.0f, 0.0f));
 		modelM = glm::scale(modelM, glm::vec3(1.0f, 1.0f, 1.0f));
 		g_pSingleColorShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
 
 		g_pTestMesh->Draw();
-
-		//g_pBoxShape->Draw();
 	}
 }

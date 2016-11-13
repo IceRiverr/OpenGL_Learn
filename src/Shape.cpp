@@ -187,78 +187,46 @@ void LineList::Draw()
 
 void TestMesh::Create()
 {
-	/*glGenBuffers(1, &meshVBO);
-	glBindBuffer(GL_ARRAY_BUFFER, meshVBO);
-	if (bHasNormal)
-	{
-		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * (positions.size() * 3 + normals.size() * 3 + texcoords.size() * 2), nullptr, GL_STATIC_DRAW);
-		
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * (positions.size() * 3), &positions[0]);
-		glBufferSubData(GL_ARRAY_BUFFER, sizeof(GLfloat) * (positions.size() * 3), sizeof(GLfloat) * (normals.size() * 3), &normals[0]);
-		glBufferSubData(GL_ARRAY_BUFFER, sizeof(GLfloat) * (positions.size() * 3 + normals.size() * 3), sizeof(GLfloat) * (texcoords.size() * 2), &texcoords[0]);
-	}
-	else
-	{
-		glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * (positions.size() * 3 + texcoords.size() * 2), nullptr, GL_STATIC_DRAW);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * (positions.size() * 3), &positions[0]);
-		glBufferSubData(GL_ARRAY_BUFFER, sizeof(GLfloat) * (positions.size() * 3), sizeof(GLfloat) * (texcoords.size() * 2), &texcoords[0]);
-	}
-
-	glGenBuffers(1, &meshEBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, meshEBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * indices.size(), &indices[0], GL_STATIC_DRAW);
-
-	glGenVertexArrays(1, &meshVAO);
-	glBindVertexArray(meshVAO);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)(sizeof(GLfloat) * (3 *positions.size())));
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)(sizeof(GLfloat) * (3 * positions.size() + 3 * sizeof(normals.size()))));
-
-	glBindVertexArray(0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);*/
-
-	GLfloat data[24] = 
-	{
-		0.0f, 0.0f, 0.0f,	 0.0f, 0.0f, 1.0f,	 0.0f, 0.0f,
-		4.0f, 0.0f, 0.0f,	 0.0f, 0.0f, 1.0f,	 2.0f, 0.0f,
-		2.0f, 2.0f, 0.0f,	 0.0f, 0.0f, 1.0f,	 1.0f, 1.0f,
-	};
-
-	GLfloat positions[9] = 
+	GLfloat _positions[] = 
 	{
 		0.0f, 0.0f, 0.0f,
 		4.0f, 0.0f, 0.0f,
-		2.0f, 2.0f, 0.0f
+		2.0f, 2.0f, 0.0f,
+		0.0f, 2.0f, 0.0f,
 	};
 
-	GLfloat normals[9] =
+	GLfloat _normals[] =
 	{
 		0.0f, 0.0f, 1.0f,
 		0.0f, 0.0f, 1.0f,
 		0.0f, 0.0f, 1.0f,
+		0.0f, 0.0f, 1.0f,
 	};
 
-	GLfloat texCoords[6] =
+	GLfloat _texCoords[] =
 	{
 		0.0f, 0.0f,
 		2.0f, 0.0f,
 		1.0f, 1.0f,
+		0.0f, 1.0f,
 	};
 
-	GLuint vertexCount = 3;
+	GLuint _indices[] = 
+	{
+		0,1,2 ,
+		0,2,3,
+	};
 
-	std::vector<glm::vec3> positionsV(vertexCount);
-	std::vector<glm::vec3> normalsV(vertexCount);
-	std::vector<glm::vec2> texCoordsV(vertexCount);
-	memcpy(&positionsV[0], &positions[0], sizeof(positions));
-	memcpy(&normalsV[0], &normals[0], sizeof(normals));
-	memcpy(&texCoordsV[0], &texCoords[0], sizeof(texCoords));
+	GLuint vertexCount = 4;
+	positions.resize(vertexCount);
+	normals.resize(vertexCount);
+	texcoords.resize(vertexCount);
+	indices.resize(sizeof(_indices) / sizeof(GLuint));
 
-	GLuint ind[3] = {0,1,2};
+	memcpy(&positions[0], &_positions[0], sizeof(_positions));
+	memcpy(&normals[0], &_normals[0], sizeof(_normals));
+	memcpy(&texcoords[0], &_texCoords[0], sizeof(_texCoords));
+	memcpy(&indices[0], &_indices[0], sizeof(_indices));
 
 	glGenBuffers(1, &meshVBO);
 	glGenBuffers(1, &meshEBO);
@@ -267,35 +235,24 @@ void TestMesh::Create()
 	glBindVertexArray(meshVAO);
 	glBindBuffer(GL_ARRAY_BUFFER, meshVBO);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, meshEBO);
-	
-	//glBufferData(GL_ARRAY_BUFFER, sizeof(data), &data[0], GL_STATIC_DRAW);
-	
-	//glBufferData(GL_ARRAY_BUFFER, sizeof(data), nullptr, GL_STATIC_DRAW);
-	//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(positions), positions);
-	//glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions), sizeof(normals), normals);
-	//glBufferSubData(GL_ARRAY_BUFFER, sizeof(positions) + sizeof(normals), sizeof(texCoords), texCoords);
 
-	glBufferData(GL_ARRAY_BUFFER, sizeof(data), nullptr, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0,																				positionsV.size() * sizeof(glm::vec3),	&positionsV[0]);
-	glBufferSubData(GL_ARRAY_BUFFER, positionsV.size() * sizeof(glm::vec3),											normalsV.size() * sizeof(glm::vec3),	&normalsV[0]);
-	glBufferSubData(GL_ARRAY_BUFFER, positionsV.size() * sizeof(glm::vec3) + normalsV.size() * sizeof(glm::vec3),	texCoordsV.size() * sizeof(glm::vec2),	&texCoordsV[0]);
+	GLuint numBufferByte1 = positions.size() * sizeof(glm::vec3) + normals.size() * sizeof(glm::vec3) + texcoords.size() * sizeof(glm::vec2);
 
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(ind), &ind[0],GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, numBufferByte1, nullptr, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0,																			positions.size() * sizeof(glm::vec3),	&positions[0]);
+	glBufferSubData(GL_ARRAY_BUFFER, positions.size() * sizeof(glm::vec3),										normals.size() * sizeof(glm::vec3),		&normals[0]);
+	glBufferSubData(GL_ARRAY_BUFFER, positions.size() * sizeof(glm::vec3) + normals.size() * sizeof(glm::vec3), texcoords.size() * sizeof(glm::vec2),	&texcoords[0]);
+
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), &indices[0],GL_STATIC_DRAW);
 
 	glEnableVertexAttribArray(0);
-	//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), 0);
-	//glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), 0);
 
 	glEnableVertexAttribArray(1);
-	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
-	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)(sizeof(positions)));
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)(positionsV.size() * sizeof(glm::vec3)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)(positions.size() * sizeof(glm::vec3)));
 
 	glEnableVertexAttribArray(2);
-	//glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
-	//glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)(sizeof(positions) + sizeof(normals)));
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)(positionsV.size() * sizeof(glm::vec3) + normalsV.size() * sizeof(glm::vec3)));
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (GLvoid*)(positions.size() * sizeof(glm::vec3) + normals.size() * sizeof(glm::vec3)));
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -305,6 +262,6 @@ void TestMesh::Create()
 void TestMesh::Draw()
 {
 	glBindVertexArray(meshVAO);
-	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 }
