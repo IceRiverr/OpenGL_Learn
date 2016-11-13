@@ -152,6 +152,7 @@
     <None Include="..\shaders\BasicShader_ps.glsl" />
     <None Include="..\shaders\BasicShader_vs.glsl" />
     <None Include="..\shaders\DepthBufferTest_ps.glsl" />
+    <None Include="..\shaders\EnvironmentMapping_ps.glsl" />
     <None Include="..\shaders\GrassShader_ps.glsl" />
     <None Include="..\shaders\LightObjectShader_ps.glsl" />
     <None Include="..\shaders\LineShader_vs.glsl" />

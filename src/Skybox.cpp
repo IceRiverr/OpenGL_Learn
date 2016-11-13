@@ -71,9 +71,9 @@ void Skybox::Init()
 
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void Skybox::Draw(Camera* camera)
@@ -92,10 +92,10 @@ void Skybox::Draw(Camera* camera)
 	glUniform1i(glGetUniformLocation(skyboxShader->Program, "cubeMap"), 0);
 
 	glDrawArrays(GL_TRIANGLES, 0, 36);
-	glBindVertexArray(0);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+	glBindVertexArray(0);
 }
 
 void Skybox::SetCubeMapFiles(const std::vector<std::string>& cubeMapFaces)

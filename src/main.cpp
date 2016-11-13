@@ -27,11 +27,12 @@ Shader* g_pLightObjectShader = nullptr;
 Shader* g_pSingleColorShader = nullptr;
 Shader* g_pGrassShader = nullptr;
 Shader* g_pLineShader = nullptr;
-
+Shader* g_pEnvMappingShader = nullptr;
 
 Shape* g_pQuadShape = nullptr;
 BoxShape* g_pBoxShape = nullptr;
 Model* g_pModel = nullptr;
+Model* g_pBunnyModel = nullptr;
 
 Camera* g_pCamera = nullptr;
 GLFWwindow* g_pWindow;
@@ -50,6 +51,8 @@ GLuint g_GlassTex;
 GLuint g_ContainerD;
 GLuint g_ContainerS;
 GLuint g_ContainerE;
+
+TestMesh* g_pTestMesh;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode); 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -160,6 +163,7 @@ void InitResource()
 	g_pSingleColorShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
 	g_pGrassShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\GrassShader_ps.glsl");
 	g_pLineShader = new Shader("..\\shaders\\LineShader_vs.glsl", "..\\shaders\\SingleColor_ps.glsl");
+	g_pEnvMappingShader = new Shader("..\\shaders\\BasicShader_vs.glsl", "..\\shaders\\EnvironmentMapping_ps.glsl");
 	
 	g_pQuadShape = new Shape(P3N3T2);
 	g_pQuadShape->Create(&quadVertices[0], sizeof(quadVertices), numQuadVertex, &squadIndices[0], sizeof(squadIndices), numQuadIndex);
@@ -187,6 +191,7 @@ void InitResource()
 	g_pLight->lightPos = glm::vec3(-1.0f, 1.0f, 1.0f);
 
 	g_pModel = new Model("../media/nanosuit/nanosuit.obj");
+	//g_pBunnyModel = new Model("../media/StanfordModel/bunny.ply");
 
 	g_pFrameBuffer = new FrameBuffer();
 	g_pFrameBuffer->CreateFrameBuffer();
@@ -209,6 +214,9 @@ void InitResource()
 
 	g_pPostprocess = new Postprocess();
 	g_pPostprocess->Init();
+
+	g_pTestMesh = new TestMesh();
+	g_pTestMesh->Create();
 }
 
 void Update(GLfloat dt)
@@ -230,7 +238,7 @@ void Render()
 	DrawLight(g_pCamera);
 	g_pSkybox->Draw(g_pCamera);
 	DrawGlass(g_pCamera);
-	
+
 	// postProcess
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
@@ -306,21 +314,21 @@ void DrawLight(Camera* camera)
 		g_pSingleColorShader->Use();
 		glUniform4f(glGetUniformLocation(g_pSingleColorShader->Program, "drawColor"), 1.0f, 0.5f, 0.31f, 1.0f);
 		
-		glm::mat4 modelM;
-		modelM = glm::translate(modelM, g_pLight->lightPos);
-		modelM = glm::scale(modelM, glm::vec3(0.2f));
+		glm::mat4 modelM = glm::mat4();
 		
 		g_pSingleColorShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
 		
 		for (int i = 0; i < LIGNT_COUNT; ++i)
 		{
-			glm::mat4 modelM;
+			modelM = glm::mat4();
 			modelM = glm::translate(modelM, GetLightPosition(i));
 			modelM = glm::scale(modelM, glm::vec3(0.2f));
 			g_pSingleColorShader->vsParams.SetModelMatrix(modelM);
 
 			g_pLight->pLightShape->Draw();
 		}
+
+		
 	}
 	
 	// draw light scene
@@ -393,11 +401,13 @@ void DrawLight(Camera* camera)
 
 	// draw line
 	{
+		g_pLineShader->Use();
+
 		glm::mat4 modelM;
 		modelM = glm::translate(modelM, glm::vec3(0.0f, 0.0f, 0.0f));
-		g_pLineShader->Use();
 		g_pLineShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
 		glm::vec4 redColor(1.0f, 0.0f,0.0f,1.0f);
+
 		glUniform4f(glGetUniformLocation(g_pLineShader->Program, "drawColor"), redColor.x, redColor.y, redColor.y, redColor.z);
 
 		Line line;
@@ -410,5 +420,36 @@ void DrawLight(Camera* camera)
 		};
 		line.Create((&linePoint[0]), 2);
 		line.Draw();
+	}
+
+	{
+		g_pEnvMappingShader->Use();
+		
+		glm::mat4 modelM;
+		modelM = glm::translate(modelM, glm::vec3(-5.0f, 1.0f, 0.0f));
+		modelM = glm::scale(modelM, glm::vec3(1.0f, 1.0f, 1.0f));
+		g_pEnvMappingShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_CUBE_MAP, g_pSkybox->GetSkyBoxMap());
+		glUniform1i(glGetUniformLocation(g_pEnvMappingShader->Program, "envMap"), 0);
+
+		glm::vec3 cameraPos = camera->GetCameraPos();
+		glUniform3f(glGetUniformLocation(g_pEnvMappingShader->Program, "cameraPos"), cameraPos.x, cameraPos.y, cameraPos.z);
+
+		g_pBoxShape->Draw();
+		//g_pBunnyModel->Draw(*g_pEnvMappingShader);
+	}
+
+	{
+		g_pSingleColorShader->Use();
+		glm::mat4 modelM;
+		modelM = glm::translate(modelM, glm::vec3(1.0f, 1.0f, 0.0f));
+		modelM = glm::scale(modelM, glm::vec3(1.0f, 1.0f, 1.0f));
+		g_pSingleColorShader->vsParams.SetVSMatrix(modelM, camera->GetViewM(), camera->GetPerspProjM());
+
+		g_pTestMesh->Draw();
+
+		//g_pBoxShape->Draw();
 	}
 }

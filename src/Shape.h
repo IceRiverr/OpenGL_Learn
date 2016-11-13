@@ -5,6 +5,7 @@
 #include<GL\glew.h>
 #include <GLFW\glfw3.h>
 #include <glm\glm.hpp>
+#include <vector>
 
 enum VertexLayout
 {
@@ -77,6 +78,26 @@ public:
 	GLuint lineVAO;
 
 	GLuint numPoint;
+};
+
+class TestMesh
+{
+public:
+	void Create();
+
+	void Draw();
+	
+	/*std::vector<glm::vec3> positions;
+	std::vector<glm::vec3> normals;
+	std::vector<glm::vec2> texcoords;
+	std::vector<GLuint> indices;
+
+	bool bHasNormal;*/
+
+private:
+	GLuint meshVAO;
+	GLuint meshVBO;
+	GLuint meshEBO;
 };
 
 #endif // !_MESH_H_

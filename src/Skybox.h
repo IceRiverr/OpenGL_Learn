@@ -22,6 +22,7 @@ public:
 	void Draw(Camera* camera);
 
 	void SetCubeMapFiles(const std::vector<std::string>& cubeMapFaces);
+	GLuint GetSkyBoxMap() {return skyBoxMap;}
 
 private:
 	GLuint skyBoxVAO;
